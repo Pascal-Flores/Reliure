@@ -1,0 +1,9 @@
+[package]
+name = "Reliure"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7.9"
+serde = "1.0.216"
+tokio = {version = "1.42.0", features = ["full"]}
