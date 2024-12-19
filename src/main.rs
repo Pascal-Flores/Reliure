@@ -1,10 +1,23 @@
-use axum::{
-    routing::get,
-    Router,
-};
+use std::{path::Path, process::exit};
+use std::env;
+use axum::{routing::get, Router,};
+use db_manager::create_database;
+mod db_manager;
+
 
 #[tokio::main()]
 async fn main() {
+    let db_path_str = env::var("DATABASE_PATH").unwrap_or_else(|_| "./data.db".to_string());
+    let db_path = Path::new(&db_path_str);
+    if !db_path.exists() {
+        match create_database(db_path) {
+            Ok(_) => (),
+            Err(error) => {
+                eprintln!("{}", error);
+                exit(-1);
+            }
+        }
+    }
     // build our application with a single route
     let app = Router::new().route("/", get(|| async { "Hello, World!" }));
 
