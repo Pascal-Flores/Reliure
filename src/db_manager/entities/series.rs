@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::db_manager::get_connection;
 
-use super::{author, get_author_by_id, Author};
+use super::{get_author_by_id, Author};
 
 #[derive(new, PartialEq, Debug, Clone)]
 
@@ -16,8 +16,8 @@ pub struct Series {
 
 pub fn add_series(db_path: &Path, name: String, author : Author) -> Result<Series, String> {
     let connection = get_connection(db_path)?;
-    let changed_row = connection.execute("INSERT INTO series (author, name) VALUES (?1, ?2)", params![author.id, name])
-        .map_err(|e| format!("Could not add series {} to database", e))?;
+    connection.execute("INSERT INTO series (author, name) VALUES (?1, ?2)", params![author.id, name])
+        .map_err(|e| format!("Could not add series {} to database : {}", name, e))?;
     match get_series_by_name(db_path, name.clone()) {
         Some(series) => Ok(series),
         None => Err(format!("Newly created series {} could not be found in database", name))
