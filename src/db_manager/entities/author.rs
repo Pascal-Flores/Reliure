@@ -1,7 +1,8 @@
-use axum::Error;
 use derive_new::new;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use std::path::Path;
+
+use crate::db_manager::get_connection;
 
 #[derive(new, PartialEq, Debug, Clone)]
 pub struct Author {
@@ -9,37 +10,35 @@ pub struct Author {
     name : String
 }
 
-pub fn add_author(db_path: &Path, name: String) -> Result<Author, Error> {
-    let connection = Connection::open(db_path).map_err(|e| Error::new(e))?;
-
+pub fn add_author(db_path: &Path, name: String) -> Result<Author, String> {
+    let connection = get_connection(db_path)?;
     connection.execute("INSERT INTO author (name) VALUES (?1)", params![name])
-        .map_err(|e| Error::new(e))?;
-
+        .map_err(|e| format!("Could not add author {} to database", e))?;
     match get_author_by_name(db_path, name.clone()) {
         Some(author) => Ok(author),
-        None => Err(Error::new(format!("Newly created author {} could not be found in database", name)))
+        None => Err(format!("Newly created author {} could not be found in database", name))
     }
 }
 
-pub fn remove_author(db_path : &Path, id : i32) -> Result<(), Error> {
-    let connection = Connection::open(db_path).map_err(|e| Error::new(e))?;
-    connection.execute("DELETE FROM author WHERE id=?1", params![id]).map_err(|e| Error::new(e))?;
+pub fn remove_author(db_path : &Path, id : i32) -> Result<(), String> {
+    let connection = get_connection(db_path)?;
+    connection.execute("DELETE FROM author WHERE id=?1", params![id])
+        .map_err(|e| format!("Could not delete author {} from database", e))?;
     return Ok(());
 }
 
 pub fn get_authors(db_path : &Path) -> Result<Vec<Author>, String> {
-    let connection = Connection::open(db_path).map_err(|e| format!("An error occurred while trying to access database: {}", e))?;
-
-    let mut stmt = connection.prepare("SELECT * FROM author").map_err(|e| format!("An error occured while getting all authors : {}", e))?;
+    let connection = get_connection(db_path)?;
+    let mut stmt = connection.prepare("SELECT * FROM author")
+        .map_err(|e| format!("An error occured while getting all authors : {}", e))?;
     let authors_result = stmt.query_map([], |row| {Ok(Author::new(row.get(0)?, row.get(1)?))})
         .map_err(|e| format!("An error occured while getting all authors : {}", e));
     let authors : Result<Vec<Author>, rusqlite::Error> = authors_result?.collect();
-    
     return authors.map_err(|e| format!("Failed to get authors : {}", e));
 }
 
 pub fn get_author_by_id(db_path : &Path, id: i32) -> Option<Author> {
-    let connection = Connection::open(db_path).ok()?;
+    let connection = get_connection(db_path).ok()?;
     let author = connection.query_row(
         "SELECT * FROM author WHERE id = ?1",
         params![id],
@@ -49,7 +48,7 @@ pub fn get_author_by_id(db_path : &Path, id: i32) -> Option<Author> {
 }
 
 pub fn get_author_by_name(db_path : &Path, name: String) -> Option<Author> {
-    let connection = Connection::open(db_path).ok()?;
+    let connection = get_connection(db_path).ok()?;
     let author = connection.query_row(
         "SELECT * FROM author WHERE name = ?1",
         params![name],
