@@ -1,64 +1,22 @@
 use std::path::Path;
 
-use chrono::NaiveDate;
-use derive_new::new;
+mod document;
+mod category;
+mod genre;
+mod genre_document;
+mod author;
+mod series;
+mod tag;
+mod author_series;
+mod document_tag;
 
-#[derive(new)]
-pub struct Document<'a> {
-    id : i32,
-    category : &'a Category<'a>,
-    author : Author,
-    series : Series,
-    date : NaiveDate,
-    path : &'a Path
-} 
-
-#[derive(new)]
-pub struct Category<'a> {
-    id : i32,
-    name : &'a String,
-    path : &'a Path
-}
-
-#[derive(new)]
-pub struct Genre {
-    id : i32,
-    name : String
-}
-
-#[derive(new)]
-pub struct GenreDocument<'a> {
-    document : &'a Document<'a>,
-    genre : &'a Genre
-}
-
-#[derive(new, PartialEq, Debug)]
-pub struct Author {
-    id : i32,
-    name : String
-}
-
-#[derive(new)]
-pub struct Series {
-    id : i32,
-    name : String
-}
-
-#[derive(new)]
-pub struct Tag {
-    id : i32,
-    name : String
-}
-
-#[derive(new)]
-pub struct AuthorSeries {
-    author : Author,
-    series : Series
-}
-
-#[derive(new)]
-pub struct DocumentTag<'a> {
-    document : &'a Document<'a>,
-    tag : Tag
-}
+pub use document::*;
+pub use category::*;
+pub use genre::*;
+pub use genre_document::*;
+pub use author::*;
+pub use series::*;
+pub use tag::*;
+pub use author_series::*;
+pub use document_tag::*;
 
