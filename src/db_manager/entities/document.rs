@@ -8,11 +8,11 @@ use std::path::Path;
 
 
 #[derive(new)]
-pub struct Document<'a> {
+pub struct Document {
     id : i32,
-    category : &'a Category<'a>,
+    category : Category,
     author : Author,
     series : Series,
     date : NaiveDate,
-    path : &'a Path
+    path : String
 } 
