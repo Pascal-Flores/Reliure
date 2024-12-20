@@ -88,6 +88,10 @@ pub fn create_database(path : &Path) -> Result<(), String> {
     }
 }
 
+pub fn get_connection(db_path : &Path) -> Result<Connection, String> {
+    return Connection::open(db_path)
+    .map_err(|e| format!("Could not access to databse : {}", e));
+}
 #[cfg(test)]
 mod tests {
     use std::fs::remove_file;
