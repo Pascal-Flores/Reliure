@@ -53,14 +53,6 @@ const DB_CREATION_QUERY : &str =
         FOREIGN KEY (category) REFERENCES category(id)
     );
 
-    CREATE TABLE IF NOT EXISTS author_series (
-        author INTEGER,
-        series INTEGER,
-        PRIMARY KEY (author, series),
-        FOREIGN KEY (author) REFERENCES author(id),
-        FOREIGN KEY (series) REFERENCES series(id)
-    );
-
     CREATE TABLE IF NOT EXISTS document_genre (
         document INTEGER,
         genre INTEGER,
