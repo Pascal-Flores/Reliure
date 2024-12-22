@@ -1,5 +1,6 @@
+use chrono::NaiveDate;
 use derive_new::new;
-use diesel::{dsl::delete, insert_into, prelude::Queryable, query_dsl::methods::FilterDsl, ExpressionMethods, RunQueryDsl, SqliteConnection};
+use diesel::{backend::Backend, deserialize::{self, FromSql}, dsl::delete, insert_into, prelude::Queryable, query_dsl::methods::FilterDsl, sql_types::Text, sqlite::Sqlite, ExpressionMethods, RunQueryDsl, SqliteConnection};
 use crate::db_manager::entities::schema::genre::dsl::*;
 
 #[derive(Queryable, PartialEq, Debug, new, Clone)]
@@ -7,6 +8,7 @@ pub struct Genre {
     pub id_ : i32,
     pub name_ : String
 }
+
 pub fn add_genre(connection : &mut SqliteConnection, genre_name : &String) -> Result<Genre, String> {
     let added_rows = insert_into(genre)
         .values(name.eq(genre_name))
