@@ -34,6 +34,7 @@ const DB_CREATION_QUERY : &str =
 
     CREATE TABLE IF NOT EXISTS document (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
         category INTEGER,
         author INTEGER,
         series INTEGER,
