@@ -6,9 +6,9 @@ use crate::db_manager::get_connection;
 
 #[derive(new, PartialEq, Debug, Clone)]
 pub struct Category {
-    id : i32,
-    name : String,
-    path : String
+    pub id : i32,
+    pub name : String,
+    pub path : String
 }
 
 pub fn add_category(db_path: &Path, name: String, path : String) -> Result<Category, String> {
