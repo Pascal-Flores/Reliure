@@ -42,8 +42,8 @@ table! {
         id -> Integer,
         name -> Text,
         category -> Integer,
-        author -> Integer,
-        series -> Integer,
+        author -> Nullable<Integer>,
+        series -> Nullable<Integer>,
         date -> Text,
         path -> Text,
     }
@@ -53,13 +53,6 @@ table! {
     document_category (document, category) {
         document -> Integer,
         category -> Integer,
-    }
-}
-
-table! {
-    author_series (author, series) {
-        author -> Integer,
-        series -> Integer,
     }
 }
 
@@ -82,8 +75,6 @@ joinable!(document -> category (category));
 joinable!(document -> series (series));
 joinable!(document_category -> category (category));
 joinable!(document_category -> document (document));
-joinable!(author_series -> author (author));
-joinable!(author_series -> series (series));
 joinable!(document_genre -> document (document));
 joinable!(document_genre -> genre (genre));
 joinable!(document_tag -> document (document));
@@ -97,7 +88,6 @@ allow_tables_to_appear_in_same_query!(
     category,
     document,
     document_category,
-    author_series,
     document_genre,
     document_tag,
 );
