@@ -6,8 +6,8 @@ use crate::db_manager::get_connection;
 
 #[derive(new, PartialEq, Debug, Clone)]
 pub struct Genre {
-    id : i32,
-    name : String
+    pub id : i32,
+    pub name : String
 }
 
 pub fn add_genre(db_path: &Path, name: String) -> Result<Genre, String> {
