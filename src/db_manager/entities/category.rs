@@ -51,9 +51,9 @@ pub fn get_category_by_id(connection : &mut SqliteConnection, category_id : &i32
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::remove_file, path::Path};
+    use std::path::Path;
 
-    use crate::db_manager::{create_database, entities::{add_category, get_categories, get_category_by_id, remove_category, Category}, get_connection};
+    use crate::db_manager::{create_database, delete_database, entities::{add_category, get_categories, get_category_by_id, remove_category, Category}, get_connection};
 
     #[test]
     fn adding_category_should_give_newly_created_category() {
@@ -62,7 +62,7 @@ mod tests {
         let mut connection = get_connection(test_db_path).unwrap();
         let maybe_added_category = add_category(&mut connection, &"Books".to_string(), &"~/Documents/Books".to_string()).unwrap();
         assert_eq!(Category::new(1, "Books".to_string(), "~/Documents/Books".to_string()), maybe_added_category);
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
@@ -76,7 +76,7 @@ mod tests {
         let categories = [books, mangas, comics].to_vec();
         let queried_categories = get_categories(&mut connection).unwrap();
         assert_eq!(categories, queried_categories);
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
@@ -87,7 +87,7 @@ mod tests {
         let books = add_category(&mut connection, &"Books".to_string(), &"~/Documents/Books".to_string()).unwrap();
         let maybe_books = get_category_by_id(&mut connection, &books.id_).unwrap();
         assert_eq!(books, maybe_books);
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
@@ -98,6 +98,6 @@ mod tests {
         let books = add_category(&mut connection, &"Books".to_string(), &"~/Documents/Books".to_string()).unwrap();
         remove_category(&mut connection, &books.id_).unwrap();
         assert!(get_category_by_id(&mut connection, &books.id_).is_none());
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 }
