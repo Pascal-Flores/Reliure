@@ -9,9 +9,9 @@ use super::{get_author_by_id, Author};
 #[derive(new, PartialEq, Debug, Clone)]
 
 pub struct Series {
-    id : i32,
-    author : Author,
-    name : String
+    pub id : i32,
+    pub author : Author,
+    pub name : String
 }
 
 pub fn add_series(db_path: &Path, name: String, author : Author) -> Result<Series, String> {
