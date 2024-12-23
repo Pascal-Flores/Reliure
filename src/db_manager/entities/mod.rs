@@ -1,14 +1,15 @@
 use std::path::Path;
 
-mod document;
-mod category;
-mod genre;
-mod genre_document;
-mod author;
-mod series;
-mod tag;
-mod author_series;
-mod document_tag;
+pub(crate) mod document;
+pub(crate) mod category;
+pub(crate) mod genre;
+pub(crate) mod genre_document;
+pub(crate) mod author;
+pub(crate) mod series;
+pub(crate) mod tag;
+pub(crate) mod author_series;
+pub(crate) mod document_tag;
+pub(crate) mod user;
 
 pub use document::*;
 pub use category::*;

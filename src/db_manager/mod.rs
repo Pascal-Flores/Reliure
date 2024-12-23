@@ -1,9 +1,19 @@
-mod entities;
+pub(crate) mod entities;
+
+pub use entities::document::*;
+pub use entities::category::*;
+pub use entities::genre::*;
+pub use entities::genre_document::*;
+pub use entities::author::*;
+pub use entities::series::*;
+pub use entities::tag::*;
+pub use entities::author_series::*;
+pub use entities::document_tag::*;
 
 use std::path::Path;
 use rusqlite::Connection;
 
-const DB_CREATION_QUERY : &str = 
+const DB_CREATION_QUERY : &str =
     "CREATE TABLE IF NOT EXISTS author (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL
@@ -75,7 +85,16 @@ const DB_CREATION_QUERY : &str =
         PRIMARY KEY (document, tag),
         FOREIGN KEY (document) REFERENCES document(id),
         FOREIGN KEY (tag) REFERENCES tag(id)
-    );";
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        email TEXT DEFAULT NULL,
+        password TEXT NOT NULL
+    );
+
+    ";
 
 pub fn create_database(path : &Path) -> Result<(), String> {
     match Connection::open(path) {
