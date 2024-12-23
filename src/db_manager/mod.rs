@@ -10,8 +10,8 @@ pub use entities::tag::*;
 pub use entities::author_series::*;
 pub use entities::document_tag::*;
 
-use std::path::Path;
-use rusqlite::Connection;
+use std::{fs, path::Path};
+use diesel::{connection::SimpleConnection, Connection, SqliteConnection};
 
 const DB_CREATION_QUERY : &str =
     "CREATE TABLE IF NOT EXISTS author (
@@ -63,14 +63,6 @@ const DB_CREATION_QUERY : &str =
         FOREIGN KEY (category) REFERENCES category(id)
     );
 
-    CREATE TABLE IF NOT EXISTS author_series (
-        author INTEGER,
-        series INTEGER,
-        PRIMARY KEY (author, series),
-        FOREIGN KEY (author) REFERENCES author(id),
-        FOREIGN KEY (series) REFERENCES series(id)
-    );
-
     CREATE TABLE IF NOT EXISTS document_genre (
         document INTEGER,
         genre INTEGER,
@@ -96,22 +88,35 @@ const DB_CREATION_QUERY : &str =
 
     ";
 
-pub fn create_database(path : &Path) -> Result<(), String> {
-    match Connection::open(path) {
-        Err(error) => return Err(format!("An error occured while creating database : {}", error.to_string())),
-        Ok(connection) => {
-            return match connection.execute_batch(DB_CREATION_QUERY) {
-                Err(error) => Err(format!("An error occured while initializing the database : {}", error.to_string())),
-                Ok(_) => Ok(())
-            }
+fn establish_connection(db_url : &str) -> Result<SqliteConnection, String> {
+    return SqliteConnection::establish(&db_url)
+        .map_err(|_| format!("Error connecting to {}", db_url));
+}
+
+pub fn create_database(db_path : &Path) -> Result<(), String> {
+    return match establish_connection(db_path.to_str().unwrap()) {
+        Err(e) => Err(format!("An error occured while creating database {} : {}", db_path.display(), e)),
+        Ok(mut connection) => {
+            connection.batch_execute(DB_CREATION_QUERY)
+                .map_err(|e| format!("An error occured while initiallizing database {} : {}", db_path.display(), e))?;
+            return Ok(());
         }
     }
 }
 
-pub fn get_connection(db_path : &Path) -> Result<Connection, String> {
-    return Connection::open(db_path)
-    .map_err(|e| format!("Could not access to databse : {}", e));
+pub fn get_connection(db_path : &Path) -> Result<SqliteConnection, String> {
+    return establish_connection(db_path.to_str().unwrap())
+        .map_err(|e| format!("Could not access to databse {} : {}", db_path.display(), e));
 }
+
+pub fn delete_database(db_path: &Path) -> Result<(), String> {
+    if db_path.exists() {
+        fs::remove_file(db_path).map_err(|e| format!("An error occurred while deleting the database {}: {}",db_path.display(), e))
+    } else {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::remove_file;
