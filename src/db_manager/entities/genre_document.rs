@@ -1,79 +1,75 @@
-use std::path::Path;
-
 use derive_new::new;
-use rusqlite::params;
+use diesel::{dsl::delete, insert_into, prelude::Queryable, query_dsl::methods::FilterDsl, Connection, ExpressionMethods, RunQueryDsl, SqliteConnection};
+use crate::db_manager::entities::schema::document_genre::dsl::*;
 
-use super::document::Document;
-use super::genre::Genre;
-
-use crate::db_manager::get_connection;
-
-
-#[derive(new, PartialEq, Debug, Clone)]
+#[derive(Queryable, PartialEq, Debug, new, Clone)]
 pub struct DocumentGenre {
-    pub document : Document,
-    pub genre : Genre
+    pub document_ : i32,
+    pub genre_ : i32
 }
 
-pub fn link_genre_to_document(db_path: &Path, document : &Document, genre : &Genre) -> Result<DocumentGenre, String> {
-    let connection = get_connection(db_path)?;
-    connection.execute("INSERT INTO document_genre (document, genre) VALUES (?1, ?2)", params![document.id, genre.id])
-        .map_err(|e| format!("Could not add link between genre {} and document {} : {}", genre.name, document.name, e))?;
-    match get_genre_document(db_path, document, genre) {
-        Some(genre_document) => Ok(genre_document),
-        None => Err(format!("Newly created link between genre {} and document {} could not be found in database", genre.name, document.name))
+pub fn link_genre_to_document(connection : &mut SqliteConnection, document_id: &i32, genre_id : &i32) -> Result<DocumentGenre, String> {
+    let added_rows = insert_into(document_genre)
+        .values((document.eq(document_id), (genre.eq(genre_id))))
+        .execute(connection)
+        .map_err(|e| format!("Could not link genre {} and document {} to database : {}", genre_id, document_id, e))?;
+    match added_rows {
+        1 => get_document_genre(connection, document_id, genre_id)
+                .ok_or(format!("Could not find newly created link between document {} and genre {} in database", document_id, genre_id)),
+        _ => Err(format!("Something wrong happened while linking document {} and genre {} in database", document_id, genre_id))
     }
 }
 
-pub fn unlink_genre_to_document(db_path: &Path, document : &Document, genre : &Genre) -> Result<(), String> {
-    let connection = get_connection(db_path)?;
-    connection.execute("DELETE FROM document_genre WHERE document = ?1 AND genre = ?2", params![document.id, genre.id])
-        .map_err(|e| format!("Could not delete link between genre {} and document {} from database : {}", genre.id, document.id, e))?;
-    return Ok(());
+pub fn unlink_genre_to_document(connection : &mut SqliteConnection, document_id: &i32, genre_id : &i32) -> Result<(), String> {
+    let deleted_rows = delete(document_genre).filter(document.eq(document_id)).filter(genre.eq(genre_id)).execute(connection)
+        .map_err(|e| format!("Could not delete link between document {} and genre {} from database : {}", document_id, genre_id, e))?;
+    match deleted_rows {
+        1 => Ok(()),
+        _ => Err(format!("Something wrong happened while deleting the link between document {} and genre {} from database", document_id, genre_id))
+}
 }
 
 
-pub fn get_genre_document(db_path: &Path, document : &Document, genre : &Genre) -> Option<DocumentGenre> {
-    let connection = get_connection(db_path).ok()?;
-    let genre_document = connection.query_row(
-    "SELECT document, genre FROM document_genre WHERE document = ?1 AND genre = ?2",
-        params![document.id, genre.id],
-        |_| Ok(DocumentGenre::new(document.clone(), genre.clone()))
-    ).ok()?;
-    return Some(genre_document);
+pub fn get_document_genre(connection : &mut SqliteConnection, document_id : &i32, genre_id : &i32) -> Option<DocumentGenre> {
+    match document_genre.filter(document.eq(document_id)).filter(genre.eq(genre_id)).first::<DocumentGenre>(connection) {
+        Ok(dg) => Some(dg),
+        Err(_) => None
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::remove_file, path::Path};
+    use std::path::Path;
 
     use chrono::NaiveDate;
 
-    use crate::db_manager::{create_database, entities::{add_category, add_document, add_genre, add_tag, get_document_tag, get_genre_document, get_tag_by_id, get_tags, link_genre_to_document, link_tag_to_document, remove_tag, unlink_genre_to_document, unlink_tag_to_document, DocumentTag, DocumentGenre, Tag}};
+    use crate::db_manager::{create_database, delete_database, entities::{add_category, add_document, add_genre, get_document_genre, link_genre_to_document, unlink_genre_to_document, DocumentGenre}, get_connection};
 
     #[test]
     fn adding_genre_document_should_give_newly_created_document_tag() {
         let test_db_path = Path::new("./adding_genre_document_should_give_newly_created_document_tag.db");
         create_database(test_db_path).unwrap();
-        let books = add_category(test_db_path, "Books".to_string(), "~/Documents/Books".to_string()).unwrap();
-        let the_fellowship_of_the_ring = add_document(test_db_path, "The Fellowship Of The Ring".to_string(), books.clone(), None, None, NaiveDate::from_ymd_opt(1954, 6, 29).unwrap(), "Tolkien/the_fellowship_of_the_ring.epub".to_string()).unwrap();
-        let heroic_fantasy = add_genre(test_db_path, "Heroic Fantasy".to_string()).unwrap();
-        let maybe_added_genre_document = link_genre_to_document(test_db_path, &the_fellowship_of_the_ring,&heroic_fantasy).unwrap();
-        assert_eq!(DocumentGenre::new(the_fellowship_of_the_ring.clone(), heroic_fantasy.clone()), maybe_added_genre_document);
-        remove_file(test_db_path).unwrap();
+        let mut connection = get_connection(test_db_path).unwrap();
+        let books = add_category(&mut connection, &"Books".to_string(), &"~/Documents/Books".to_string()).unwrap();
+        let the_fellowship_of_the_ring = add_document(&mut connection, &"The Fellowship Of The Ring".to_string(), &books.id_, &None, &None, &NaiveDate::from_ymd_opt(1954, 6, 29).unwrap().to_string(), &"Tolkien/the_fellowship_of_the_ring.epub".to_string()).unwrap();
+        let heroic_fantasy = add_genre(&mut connection, &"Heroic Fantasy".to_string()).unwrap();
+        let maybe_added_genre_document = link_genre_to_document(&mut connection, &the_fellowship_of_the_ring.id_,&heroic_fantasy.id_).unwrap();
+        assert_eq!(DocumentGenre::new(the_fellowship_of_the_ring.id_, heroic_fantasy.id_), maybe_added_genre_document);
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
     fn remove_genre_document_should_delete_it() {
         let test_db_path = Path::new("./remove_genre_document_should_delete_it.db");
         create_database(test_db_path).unwrap();
-        let books = add_category(test_db_path, "Books".to_string(), "~/Documents/Books".to_string()).unwrap();
-        let the_fellowship_of_the_ring = add_document(test_db_path, "The Fellowship Of The Ring".to_string(), books.clone(), None, None, NaiveDate::from_ymd_opt(1954, 6, 29).unwrap(), "Tolkien/the_fellowship_of_the_ring.epub".to_string()).unwrap();
-        let heroic_fantasy = add_genre(test_db_path, "Heroic Fantasy".to_string()).unwrap();
-        link_genre_to_document(test_db_path, &the_fellowship_of_the_ring,&heroic_fantasy).unwrap();
-        unlink_genre_to_document(test_db_path, &the_fellowship_of_the_ring, &heroic_fantasy).unwrap();
-        assert!(get_genre_document(test_db_path, &the_fellowship_of_the_ring, &heroic_fantasy).is_none());
-        remove_file(test_db_path).unwrap();
+        let mut connection = get_connection(test_db_path).unwrap();
+        let books = add_category(&mut connection, &"Books".to_string(), &"~/Documents/Books".to_string()).unwrap();
+        let the_fellowship_of_the_ring = add_document(&mut connection, &"The Fellowship Of The Ring".to_string(), &books.id_, &None, &None, &NaiveDate::from_ymd_opt(1954, 6, 29).unwrap().to_string(), &"Tolkien/the_fellowship_of_the_ring.epub".to_string()).unwrap();
+        let heroic_fantasy = add_genre(&mut connection, &"Heroic Fantasy".to_string()).unwrap();
+        link_genre_to_document(&mut connection, &the_fellowship_of_the_ring.id_,&heroic_fantasy.id_).unwrap();
+        unlink_genre_to_document(&mut connection, &the_fellowship_of_the_ring.id_, &heroic_fantasy.id_).unwrap();
+        assert!(get_document_genre(&mut connection, &the_fellowship_of_the_ring.id_, &heroic_fantasy.id_).is_none());
+        delete_database(test_db_path).unwrap();
     }
 
 

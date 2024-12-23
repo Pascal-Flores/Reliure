@@ -1,68 +1,59 @@
+use chrono::NaiveDate;
 use derive_new::new;
-use rusqlite::{params, Connection};
-use std::path::Path;
+use diesel::{backend::Backend, deserialize::{self, FromSql}, dsl::delete, insert_into, prelude::Queryable, query_dsl::methods::FilterDsl, sql_types::Text, sqlite::Sqlite, ExpressionMethods, RunQueryDsl, SqliteConnection};
+use crate::db_manager::entities::schema::genre::dsl::*;
 
-use crate::db_manager::get_connection;
-
-#[derive(new, PartialEq, Debug, Clone)]
+#[derive(Queryable, PartialEq, Debug, new, Clone)]
 pub struct Genre {
-    pub id : i32,
-    pub name : String
+    pub id_ : i32,
+    pub name_ : String
 }
 
-pub fn add_genre(db_path: &Path, name: String) -> Result<Genre, String> {
-    let connection = get_connection(db_path)?;
-    connection.execute("INSERT INTO genre (name) VALUES (?1)", params![name])
-        .map_err(|e| format!("Could not add genre {} to database", e))?;
-
-    match get_genre_by_name(db_path, name.clone()) {
-        Some(genre) => Ok(genre),
-        None => Err(format!("Newly created genre {} could not be found in database", name))
+pub fn add_genre(connection : &mut SqliteConnection, genre_name : &String) -> Result<Genre, String> {
+    let added_rows = insert_into(genre)
+        .values(name.eq(genre_name))
+        .execute(connection)
+        .map_err(|e| format!("Could not add genre {} to database : {}", genre_name, e))?;
+    match added_rows {
+        1 => get_genre_by_name(connection, genre_name)
+                .ok_or(format!("Could not find newly created author {} in database", genre_name)),
+        _ => Err(format!("Something wrong happened while adding author {} in database", genre_name))
     }
 }
 
-pub fn remove_genre(db_path : &Path, id : i32) -> Result<(), String> {
-    let connection = get_connection(db_path)?;
-    connection.execute("DELETE FROM genre WHERE id=?1", params![id])
-        .map_err(|e| format!("Could not delete author {} from database", e))?;
-    return Ok(());
+pub fn remove_genre(connection : &mut SqliteConnection, genre_id : &i32) -> Result<(), String> {
+    let deleted_rows = delete(genre).filter(id.eq(&genre_id)).execute(connection)
+        .map_err(|e| format!("Could not delete author {} from database : {}", genre_id, e))?;
+    match deleted_rows {
+        1 => Ok(()),
+        _ => Err(format!("Something wrong happened while deleting author {} from database", genre_id))
+    }
 }
 
-pub fn get_genres(db_path : &Path) -> Result<Vec<Genre>, String> {
-    let connection = get_connection(db_path)?;
-    let mut stmt = connection.prepare("SELECT * FROM genre")
-        .map_err(|e| format!("An error occured while getting all genres : {}", e))?;
-    let genre_result = stmt.query_map([], |row| {Ok(Genre::new(row.get(0)?, row.get(1)?))})
-        .map_err(|e| format!("An error occured while getting all genres : {}", e));
-    let genres : Result<Vec<Genre>, rusqlite::Error> = genre_result?.collect();
-    return genres.map_err(|e| format!("Failed to get genres : {}", e));
+pub fn get_genres(connection : &mut SqliteConnection) -> Result<Vec<Genre>, String> {
+    return genre.load::<Genre>(connection)
+    .map_err(|e| format!("An errror occured while getting all genres : {}", e));
 }
 
-pub fn get_genre_by_id(db_path : &Path, id: i32) -> Option<Genre> {
-    let connection = get_connection(db_path).ok()?;
-    let genre = connection.query_row(
-        "SELECT * FROM genre WHERE id = ?1",
-        params![id],
-        |row| Ok(Genre::new(row.get(0)?, row.get(1)?))
-    ).ok()?;
-    return Some(genre);
+pub fn get_genre_by_id(connection : &mut SqliteConnection, genre_id : &i32) -> Option<Genre> {
+    match genre.filter(id.eq(genre_id)).first::<Genre>(connection) {
+        Ok(g) => Some(g),
+        Err(_) => None
+    }
 }
 
-pub fn get_genre_by_name(db_path : &Path, name: String) -> Option<Genre> {
-    let connection = get_connection(db_path).ok()?;
-    let genre = connection.query_row(
-        "SELECT * FROM genre WHERE name = ?1",
-        params![name],
-        |row| Ok(Genre::new(row.get(0)?, row.get(1)?))
-    ).ok()?;
-    return Some(genre);
+pub fn get_genre_by_name(connection : &mut SqliteConnection, genre_name : &String) -> Option<Genre> {
+    match genre.filter(name.eq(genre_name)).first::<Genre>(connection) {
+        Ok(g) => Some(g),
+        Err(_) => None
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::remove_file, path::Path};
+    use std::path::Path;
 
-    use crate::db_manager::{create_database, entities::{add_author, get_authors, Author}};
+    use crate::db_manager::{create_database, delete_database, entities::{add_author, get_authors, Author}, get_connection};
 
     use super::{add_genre, get_genres, remove_genre, get_genre_by_id, get_genre_by_name, Genre};
 
@@ -70,41 +61,45 @@ mod tests {
     fn adding_genre_should_give_newly_created_genre() {
         let test_db_path = Path::new("./adding_genre_should_give_newly_created_genre.db");
         create_database(test_db_path).unwrap();
-        let maybe_added_genre = add_genre(test_db_path, "Sci-Fi".to_string()).unwrap();
+        let mut connection = get_connection(test_db_path).unwrap();
+        let maybe_added_genre = add_genre(&mut connection, &"Sci-Fi".to_string()).unwrap();
         assert_eq!(Genre::new(1, "Sci-Fi".to_string()), maybe_added_genre);
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
     fn getting_all_genres_should_give_all_genres() {
         let test_db_path = Path::new("./getting_all_genres_should_give_all_genres.db");
         create_database(test_db_path).unwrap();
-        let sci_fi = add_genre(test_db_path, "Sci-Fi".to_string()).unwrap();
-        let heroic_fantsay = add_genre(test_db_path, "Heroic-Fantasy".to_string()).unwrap();
-        let thriller = add_genre(test_db_path, "Thriller".to_string()).unwrap();
+        let mut connection = get_connection(test_db_path).unwrap();
+        let sci_fi = add_genre(&mut connection, &"Sci-Fi".to_string()).unwrap();
+        let heroic_fantsay = add_genre(&mut connection, &"Heroic-Fantasy".to_string()).unwrap();
+        let thriller = add_genre(&mut connection, &"Thriller".to_string()).unwrap();
         let genres = [sci_fi, heroic_fantsay, thriller].to_vec();
-        let queried_genres = get_genres(test_db_path).unwrap();
+        let queried_genres = get_genres(&mut connection).unwrap();
         assert_eq!(genres, queried_genres);
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
     fn getting_genre_by_id_should_give_genre() {
         let test_db_path = Path::new("./getting_genre_by_id_should_give_genre.db");
         create_database(test_db_path).unwrap();
-        let sci_fi = add_genre(test_db_path, "Sci-Fi".to_string()).unwrap();
-        let maybe_sci_fi = get_genre_by_id(test_db_path, sci_fi.id).unwrap();
+        let mut connection = get_connection(test_db_path).unwrap();
+        let sci_fi = add_genre(&mut connection, &"Sci-Fi".to_string()).unwrap();
+        let maybe_sci_fi = get_genre_by_id(&mut connection, &sci_fi.id_).unwrap();
         assert_eq!(sci_fi, maybe_sci_fi);
-        remove_file(test_db_path).unwrap();
+        delete_database(test_db_path).unwrap();
     }
 
     #[test]
     fn remove_genre_should_delete_it() {
         let test_db_path = Path::new("./remove_genre_should_delete_it.db");
         create_database(test_db_path).unwrap();
-        let sci_fi = add_genre(test_db_path, "Sci-Fi".to_string()).unwrap();
-        remove_genre(test_db_path, sci_fi.id).unwrap();
-        assert!(get_genre_by_id(test_db_path, sci_fi.id).is_none());
-        remove_file(test_db_path).unwrap();
+        let mut connection = get_connection(test_db_path).unwrap();
+        let sci_fi = add_genre(&mut connection, &"Sci-Fi".to_string()).unwrap();
+        remove_genre(&mut connection, &sci_fi.id_).unwrap();
+        assert!(get_genre_by_id(&mut connection, &sci_fi.id_).is_none());
+        delete_database(test_db_path).unwrap();
     }
 }
