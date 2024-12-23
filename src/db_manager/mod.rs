@@ -7,7 +7,7 @@ pub use entities::genre_document::*;
 pub use entities::author::*;
 pub use entities::series::*;
 pub use entities::tag::*;
-pub use entities::author_series::*;
+// pub use entities::author_series::*;
 pub use entities::document_tag::*;
 
 use std::{fs, path::Path};

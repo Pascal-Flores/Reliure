@@ -68,25 +68,38 @@ pub async fn register(Json(payload): Json<CreateUser>) -> Json<Value> {
 
 pub async fn login(Extension(session): Extension<Session>, Json(payload): Json<LoginUser>) -> impl IntoResponse {
 
-    let users = get_user_by_username(payload.username);
+    let users = get_by_username(payload.username);
 
     if users.is_err() {
-        // return Response::new("No user found").into_response();
+        return (
+            [(axum::http::header::SET_COOKIE, "".to_string())],
+            Json(json!({ "data": "Wrong username or password" }))
+        )
     }
 
     let user = users.unwrap();
 
-    if !sha512_check(&*payload.password, &*user.password).is_ok() {
-        // return Response::new("Invalid password").into_response();
+    if user.len() == 1 {
+        let user_check = user.get(0).unwrap();
+        if !sha512_check(&*payload.password, &*user_check.password_).is_ok() {
+           return (
+               [(axum::http::header::SET_COOKIE, "".to_string())],
+               Json(json!({ "data": "Wrong username or password" }))
+           )
+        }
+
+        let jwt = generate_jwt(&user_check.username_);
+        session.insert("jwt", jwt.clone()).await.unwrap();
+        let cookie = format!("jwt={}; HttpOnly; Path=/", jwt);
+        (
+            [(axum::http::header::SET_COOKIE, cookie)],
+            Json(json!({ "data": "Logged in" }))
+        )
+    } else {
+        (
+            [(axum::http::header::SET_COOKIE, "".to_string())],
+            Json(json!({ "data": "Wrong username or password" }))
+        )
     }
-
-    let jwt = generate_jwt(&user.username);
-    session.insert("jwt", jwt.clone()).await.unwrap();
-    let cookie = format!("jwt={}; HttpOnly; Path=/", jwt);
-
-    (
-        [(axum::http::header::SET_COOKIE, cookie)],
-        Json(json!({ "data": "Logged in" }))
-    )
 
 }

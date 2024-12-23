@@ -70,6 +70,15 @@ table! {
     }
 }
 
+table! {
+    users (id) {
+        id -> Integer,
+        username -> Text,
+        email -> Text,
+        password -> Text,
+    }
+}
+
 joinable!(document -> author (author));
 joinable!(document -> category (category));
 joinable!(document -> series (series));
@@ -83,6 +92,7 @@ joinable!(document_tag -> tag (tag));
 allow_tables_to_appear_in_same_query!(
     author,
     series,
+    users,
     tag,
     genre,
     category,
