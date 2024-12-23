@@ -26,16 +26,6 @@ pub fn get_by_username(username: String) -> Result<Vec<User>, String> {
         return Err(connection.err().unwrap());
     }
 
-    // let users = get_users(&mut connection?);
-    //
-    // if users.is_ok() {
-    //     for user in users? {
-    //         if user.username_ == username {
-    //             return Ok(user);
-    //         }
-    //     }
-    // }
-
     let user = get_user_by_username(&mut connection?, &username);
 
     if user.is_ok() {
