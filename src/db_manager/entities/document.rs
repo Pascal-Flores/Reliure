@@ -75,6 +75,11 @@ pub fn get_documents_from_series(connection : &mut SqliteConnection, series_id :
     .map_err(|e| format!("An error occured while trying to get all documents from series {} : {}", series_id, e));
 }
 
+pub fn get_documents_from_category(connection : &mut SqliteConnection, category_id : &i32) -> Result<Vec<Document>, String> {
+    return document.filter(category.eq(category_id)).load::<Document>(connection)
+        .map_err(|e| format!("An error occured while trying to get all documents from category {} : {}", category_id, e));
+}
+
 pub fn get_documents_with_genre(connection : &mut SqliteConnection, genre_id : &i32) -> Result<Vec<Document>, String> {
     use crate::db_manager::entities::schema::document_genre::dsl::{document_genre, document as dg_document, genre as dg_genre};
     use crate::db_manager::entities::schema::genre::dsl::{genre, id as g_id};

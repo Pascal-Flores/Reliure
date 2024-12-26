@@ -12,6 +12,7 @@ use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer, SessionS
 mod db_manager;
 mod controllers;
 mod services;
+mod document_scanner;
 
 
 #[tokio::main()]
